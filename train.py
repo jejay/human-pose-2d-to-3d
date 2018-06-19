@@ -6,47 +6,48 @@ import gc
 import os.path
 import os
 
+DATA_PATH = 'data /processed/'
 rng = np.random.RandomState(23456)
 tf.reset_default_graph()
 
 if not os.path.isfile('data.tfrecords'):
-    Xcmu = np.load('data/processed/data_cmu.npz')['clips']
+    Xcmu = np.load(DATA_PATH + 'data_cmu.npz')['clips']
     Xcmu = Xcmu.astype(np.float32, copy=False)
     np.savez('data_cmu_32.npz', clips=Xcmu)
     del Xcmu
     gc.collect()
     
-    Xhdm05 = np.load('data/processed/data_hdm05.npz')['clips']
+    Xhdm05 = np.load(DATA_PATH + 'data_hdm05.npz')['clips']
     Xhdm05 = Xhdm05.astype(np.float32, copy=False)
     np.savez('data_hdm05_32.npz', clips=Xhdm05)
     del Xhdm05
     gc.collect()
     
-    Xmhad = np.load('data/processed/data_mhad.npz')['clips']
+    Xmhad = np.load(DATA_PATH + 'data_mhad.npz')['clips']
     Xmhad = Xmhad.astype(np.float32, copy=False)
     np.savez('data_mhad_32.npz', clips=Xmhad)
     del Xmhad
     gc.collect()
     
-    Xedin_locomotion = np.load('data/processed/data_edin_locomotion.npz')['clips']
+    Xedin_locomotion = np.load(DATA_PATH + 'data_edin_locomotion.npz')['clips']
     Xedin_locomotion = Xedin_locomotion.astype(np.float32, copy=False)
     np.savez('data_edin_locomotion_32.npz', clips=Xedin_locomotion)
     del Xedin_locomotion
     gc.collect()
     
-    Xedin_xsens = np.load('data/processed/data_edin_xsens.npz')['clips']
+    Xedin_xsens = np.load(DATA_PATH + 'data_edin_xsens.npz')['clips']
     Xedin_xsens = Xedin_xsens.astype(np.float32, copy=False)
     np.savez('data_edin_xsens_32.npz', clips=Xedin_xsens)
     del Xedin_xsens
     gc.collect()
     
-    Xedin_misc = np.load('data/processed/data_edin_misc.npz')['clips']
+    Xedin_misc = np.load(DATA_PATH + 'data_edin_misc.npz')['clips']
     Xedin_misc = Xedin_misc.astype(np.float32, copy=False)
     np.savez('data_edin_misc_32.npz', clips=Xedin_misc)
     del Xedin_misc
     gc.collect()
     
-    Xedin_punching = np.load('data/processed/data_edin_punching.npz')['clips']
+    Xedin_punching = np.load(DATA_PATH + 'data_edin_punching.npz')['clips']
     Xedin_punching = Xedin_punching.astype(np.float32, copy=False)
     np.savez('data_edin_punching_32.npz', clips=Xedin_punching)
     del Xedin_punching
@@ -122,7 +123,7 @@ print("done")
 
 preprocess = np.load('preprocess_core.npz')
 
-X = np.load('data/processed/data_cmu.npz')['clips']
+X = np.load(DATA_PATH + 'data_cmu.npz')['clips']
 X = np.swapaxes(X, 1, 2).astype(np.float32)
 X = (X - preprocess['Xmean']) / preprocess['Xstd']
 
