@@ -6,7 +6,7 @@ import gc
 import os.path
 import os
 
-DATA_PATH = 'data /processed/'
+DATA_PATH = 'data/processed/'
 rng = np.random.RandomState(23456)
 tf.reset_default_graph()
 
