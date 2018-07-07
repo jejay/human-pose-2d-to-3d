@@ -20,7 +20,7 @@ model.build_graph(inputs)
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-index = 1328 #rng.randint(X.shape[0])
+index = 1429 #rng.randint(X.shape[0])
 Xorgi = np.array(X[index:index+1])
 Xnois = ((Xorgi * rng.binomial(size=Xorgi.shape, n=1, p=0.5)) / 0.5).astype(np.float32)
 Xrecn = np.array(sess.run(model.autoencoded, {
@@ -34,6 +34,8 @@ Xrecn = np.array(sess.run(model.autoencoded, {
 Xorgi = (Xorgi * preprocess['Xstd']) + preprocess['Xmean']
 Xnois = (Xnois * preprocess['Xstd']) + preprocess['Xmean']
 Xrecn = (Xrecn * preprocess['Xstd']) + preprocess['Xmean']
+
+np.savez("manifolded.npz", Xorgi=Xorgi, Xnois=Xnois, Xrecn=Xrecn)
 
 #Xrecn[:,-7:-4] = Xorgi[:,-7:-4]
     

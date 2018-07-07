@@ -1,14 +1,15 @@
 import tensorflow as tf
 
 class ManifoldModel(object):
-    def __init__(self, window, activation=tf.nn.relu, accurate_depooling=False):
+    def __init__(self, window, activation=tf.nn.relu, maxpooling=True, accurate_depooling=False):
         self._window = window
+        self._depth = 1
         self._activation = activation
         self._pooling_ind_stack = []
         self._accurate_depooling = accurate_depooling
+        self._maxpooling = maxpooling
         
         self.training = tf.placeholder_with_default(False, [])
-        
     def conv_in(self, x, channels_in, channels_out, kernel_length, dropout=0.25):
         droppedout = tf.layers.dropout(
             x,
@@ -18,10 +19,10 @@ class ManifoldModel(object):
         )
         
         convolved = tf.layers.conv1d(
-            tf.reshape(droppedout, [-1, channels_in, self._window]),
+            tf.reshape(droppedout, [-1, channels_in, self._window//self._depth]),
             filters=channels_out,
             kernel_size=kernel_length,
-            strides=1,
+            strides=1 if self._maxpooling else 2,
             padding='same',
             data_format='channels_first',
             activation=self._activation,
@@ -29,29 +30,35 @@ class ManifoldModel(object):
             bias_initializer=tf.zeros_initializer()
         ) # (batchsize, channels_out, window)
         
-        pooled, ind = tf.nn.max_pool_with_argmax(
-            tf.reshape(convolved, [-1, channels_out, self._window, 1]),
-            ksize=[1,1,2,1],
-            strides=[1,1,2,1],
-            padding="VALID"
-        ) # (batchsize, channels_out, window//2, 1)
-        
-        self._pooling_ind_stack.append(ind)
-        
-        manifold = tf.reshape(pooled, [-1, channels_out, self._window//2])
+        if self._maxpooling:
+            pooled, ind = tf.nn.max_pool_with_argmax(
+                tf.reshape(convolved, [-1, channels_out, self._window//self._depth, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, channels_out, window//2, 1)
+            self._pooling_ind_stack.append(ind)
+            manifold = tf.reshape(pooled, [-1, channels_out, self._window//(self._depth*2)])
+            
+        else:
+            manifold = tf.reshape(convolved, [-1, channels_out, self._window//(self._depth*2)])
+            
+        self._depth *= 2
         return manifold
 
     def conv_out(self, x, channels_in, channels_out, kernel_length, dropout=0.25):
-        if self._accurate_depooling:
+        self._depth //= 2
+        
+        if self._maxpooling and self._accurate_depooling:
             depooled = self.unpool(
-                tf.reshape(x, [-1, channels_in, self._window//2, 1]),
+                tf.reshape(x, [-1, channels_in, self._window//(self._depth*2), 1]),
                 self._pooling_ind_stack.pop(),
                 stride=[1, 1, 2, 1]
             ) # (batchsize, channels_in, window, 1)
         else:
             depooled = tf.multiply(tf.image.resize_images(
-                tf.reshape(x, [-1, channels_in, self._window//2, 1]),
-                [channels_in, self._window],
+                tf.reshape(x, [-1, channels_in, self._window//(self._depth*2), 1]),
+                [channels_in, self._window//self._depth],
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             ), 0.5) # (batchsize, channels_in, window, 1)
 
@@ -63,7 +70,7 @@ class ManifoldModel(object):
         )
 
         deconvolved = tf.layers.conv1d(
-            tf.reshape(droppedout, [-1, channels_in, self._window]),
+            tf.reshape(droppedout, [-1, channels_in, self._window//self._depth]),
             filters=channels_out,
             kernel_size=kernel_length,
             strides=1,
@@ -72,7 +79,6 @@ class ManifoldModel(object):
             kernel_initializer=None,
             bias_initializer=tf.zeros_initializer()
         ) # (batchsize, channels_out, window)
-        
         return deconvolved
     
     @staticmethod

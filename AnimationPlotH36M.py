@@ -9,14 +9,12 @@ from Quaternions import Quaternions
 
 DontGarbageCollect = []
 
-def animation_plot(animations, filename=None, ignore_root=False, interval=33.33):
-    
-    footsteps = []
-    
+def animation_plot(animations, ignore_root=False, interval=33.33):        
+
     for ai in range(len(animations)):
-        anim = np.swapaxes(animations[ai][0].copy(), 0, 1)
+        anim = animations[ai]
         
-        joints, root_x, root_z, root_r = anim[:,:-7], anim[:,-7], anim[:,-6], anim[:,-5]
+        joints, vel, rot = anim[:,0:-5], anim[:,-4:-1], anim[:,-1]
         joints = joints.reshape((len(joints), -1, 3))
         
         rotation = Quaternions.id(1)
@@ -25,41 +23,15 @@ def animation_plot(animations, filename=None, ignore_root=False, interval=33.33)
         
         if not ignore_root:
             for i in range(len(joints)):
-                joints[i,:,:] = rotation * joints[i]
-                joints[i,:,0] = joints[i,:,0] + translation[0,0]
-                joints[i,:,2] = joints[i,:,2] + translation[0,2]
-                rotation = Quaternions.from_angle_axis(-root_r[i], np.array([0,1,0])) * rotation
+                joints[i,:,:] = rotation * joints[i] + translation
+                rotation = Quaternions.from_angle_axis(rot[i], np.array([0,0,1])) * rotation
                 offsets.append(rotation * np.array([0,0,1]))
-                translation = translation + rotation * np.array([root_x[i], 0, root_z[i]])
-        
+                translation = translation + rotation * vel[i]
+    
         animations[ai] = joints
-        footsteps.append(anim[:,-4:])
     
-        """
-        offsets = np.array(offsets)[:,0]
-        print(offsets)
-        
-        import matplotlib.pyplot as plt
-        
-        plt.plot(joints[::10,0,0], joints[::10,0,2], 'o')
-        plt.plot(joints[:,0,0], joints[:,0,2])
-        for j in range(0, len(joints), 10):
-            if footsteps[ai][j,0] > 0.5: plt.plot(joints[j,3,0], joints[j,3,2], '.', color='black')
-            if footsteps[ai][j,2] > 0.5: plt.plot(joints[j,7,0], joints[j,7,2], '.', color='black') 
-            #plt.plot(
-            #    np.array([joints[j,0,0], joints[j,0,0] + 3 * offsets[j,0]]),
-            #    np.array([joints[j,0,2], joints[j,0,2] + 3 * offsets[j,2]]), color='red')
-        plt.xlim([-30, 30])
-        plt.ylim([-10, 50])
-        plt.grid(False)
-        plt.show()
-        """
-        
-    #raise Exception()
     
-    footsteps = np.array(footsteps)
-    
-    scale = 1.25*((len(animations))/2)
+    scale = 30*((len(animations))/2)
     
     fig = plt.figure(figsize=(12,8))
     ax = fig.add_subplot(111, projection='3d')
@@ -89,16 +61,16 @@ def animation_plot(animations, filename=None, ignore_root=False, interval=33.33)
         
         for ai in range(len(animations)):
         
-            offset = 25*(ai-((len(animations))/2))
+            offset = 1000*(ai-((len(animations))/2))
         
             for j in range(len(parents)):
                 
                 if parents[j] != -1:
                     lines[ai][j].set_data(
                         [ animations[ai][i,j,0]+offset, animations[ai][i,parents[j],0]+offset],
-                        [-animations[ai][i,j,2],       -animations[ai][i,parents[j],2]])
+                        [-animations[ai][i,j,1],       -animations[ai][i,parents[j],1]])
                     lines[ai][j].set_3d_properties(
-                        [ animations[ai][i,j,1],        animations[ai][i,parents[j],1]])
+                        [ animations[ai][i,j,2],        animations[ai][i,parents[j],2]])
             
             changed += lines[ai]
             
@@ -112,7 +84,7 @@ def animation_plot(animations, filename=None, ignore_root=False, interval=33.33)
 
     plt.show()
     
-    DontGarbageCollect =+ ani
+    DontGarbageCollect += ani
 
     return ani
         
