@@ -1,0 +1,15 @@
+WARNING: If you use conda to create environments, your home directory may fill up. Please see our documentation at 
+ https://www.wiki.ed.ac.uk/display/ResearchServices/Anaconda for advice.
+WARNING:tensorflow:From /exports/eddie/scratch/s1792338/myanaconda/tensorflow/lib/python3.6/site-packages/tensorflow/python/ops/nn_ops.py:195: calling conv1d (from tensorflow.python.ops.nn_ops) with data_format=NCHW is deprecated and will be removed in a future version.
+Instructions for updating:
+`NCHW` for data_format is deprecated, use `NCW` instead
+2018-07-16 20:10:22.842358: I tensorflow/core/platform/cpu_feature_guard.cc:140] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2018-07-16 20:10:25.888703: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1344] Found device 0 with properties: 
+name: TITAN X (Pascal) major: 6 minor: 1 memoryClockRate(GHz): 1.531
+pciBusID: 0000:83:00.0
+totalMemory: 11.90GiB freeMemory: 11.76GiB
+2018-07-16 20:10:25.890048: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1423] Adding visible gpu devices: 0
+2018-07-16 20:10:29.048389: I tensorflow/core/common_runtime/gpu/gpu_device.cc:911] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-07-16 20:10:29.048471: I tensorflow/core/common_runtime/gpu/gpu_device.cc:917]      0 
+2018-07-16 20:10:29.048497: I tensorflow/core/common_runtime/gpu/gpu_device.cc:930] 0:   N 
+2018-07-16 20:10:29.049383: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1041] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 11389 MB memory) -> physical GPU (device: 0, name: TITAN X (Pascal), pci bus id: 0000:83:00.0, compute capability: 6.1)

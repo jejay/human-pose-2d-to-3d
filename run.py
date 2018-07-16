@@ -161,7 +161,10 @@ def main(_):
     
     saver10 = tf.train.Saver(max_to_keep=3)
     saver50 = tf.train.Saver(max_to_keep=3)
-    sess = tf.Session()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(os.path.join(train_dir, 'logs/train'), sess.graph)
     valid_nn_writer = tf.summary.FileWriter(os.path.join(train_dir, 'logs/valid-nn'))
