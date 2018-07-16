@@ -46,7 +46,7 @@ def animation_plot(animations, ignore_root=False, interval=33.33):
     acolors = list(sorted(colors.cnames.keys()))[::-1]
     lines = []
     
-    parents = np.array([-1,0,1,2,3,4,1,6,7,8,1,10,11,12,12,14,15,16,12,18,19,20])
+    parents = np.array([10,0,1,2,3,10,5,6,7,8,-1,10,11,12,11,14,15,16,16,11,19,20,21,21])
     
     for ai, anim in enumerate(animations):
         lines.append([plt.plot([0,0], [0,0], [0,0],
