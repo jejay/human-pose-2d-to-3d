@@ -43,7 +43,7 @@ class FlexibleSerialManifoldModel(ManifoldModel):
             for i in range(self._num_manifolds):
                 with tf.variable_scope("manifold_{0}".format(i)):
                     residual_candidates.append(None if not self._inter_residual else x)
-                    channels_out = self._data_channels_in
+                    channels_out = self._data_channels_in if i == 0 else self._data_channels_out
                     
                     for j in range(self._manifold_depth):
                         channels_in = channels_out
