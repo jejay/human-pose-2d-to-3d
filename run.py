@@ -146,11 +146,10 @@ def main(_):
     model.build_graph(next_input)
     
     if FLAGS.intermediate_supervision:
-        loss = tf.zeros_like(next_input)
         for i, supervision in enumerate(model.autoencoded):
             partial_loss = tf.losses.mean_squared_error(labels=next_label, predictions=supervision)
-            loss += partial_loss
-            tf.summary.scalar("partial_loss_{0}".format(i), loss)
+            tf.summary.scalar("partial_loss_{0}".format(i), partial_loss)
+        loss = tf.losses.get_total_loss()
     else:
         loss = tf.losses.mean_squared_error(labels=next_label, predictions=model.autoencoded[len(model.autoencoded)-1])
     tf.summary.scalar("loss", loss)
