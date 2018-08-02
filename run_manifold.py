@@ -20,6 +20,7 @@ tf.app.flags.DEFINE_integer("window_length", 240, "Number of frames in a window 
 tf.app.flags.DEFINE_string("architecture", "linear-hourglass", "Architecture to use.")
 tf.app.flags.DEFINE_boolean("procrustes", False, "Whether to rotational align 2D projections.")
 tf.app.flags.DEFINE_boolean("independent", False, "Whether to draw the camera angles independent of time.")
+tf.app.flags.DEFINE_boolean("toy", False, "Whether to use the same toy matrice/camera angle for all poses.")
 tf.app.flags.DEFINE_boolean("batch_norm", True, "Use batch_normalization")
 
 
@@ -39,6 +40,7 @@ FLAGS = tf.app.flags.FLAGS
 train_dir = os.path.join(FLAGS.train_dir,
                          "__".join(['data_{0}'.format(FLAGS.dataset),
                                     "architecture_{0}".format(FLAGS.architecture),
+                                    'toy_on' if FLAGS.toy else 'toy_off',
                                     'independent_on' if FLAGS.independent else 'independent_off',
                                     'procrustes_on' if FLAGS.procrustes else 'procrustes_off',
                                     'bnorm_on' if FLAGS.batch_norm else 'bnorm_off']))
@@ -67,17 +69,25 @@ def main(_):
     procrustes = tf.placeholder(tf.bool)
     tfrecordsfile = tf.placeholder(tf.string)
     cams = tf.constant(np.load(os.path.join(FLAGS.data_dir, "cammats.npz"))["mats"])
+    toycam = tf.constant([[ 6.123234e-17,  0.000000e+00, -1.000000e+00],
+                          [ 0.000000e+00,  1.000000e+00,  0.000000e+00],
+                          [ 1.000000e+00,  0.000000e+00,  6.123234e-17]], dtype=tf.float32)
     
     def project_to_2d(x):
         x_2d = tf.slice(x, [0,0,73], [-1, -1, -1])
         
-        x_2d_indep = tf.reshape(x_2d, [-1, 13, 3])
-        x_2d_indep @= tf.random_shuffle(cams)[0:tf.shape(x)[0]*FLAGS.window_length]
+        if FLAGS.toy:
+            x_2d = tf.reshape(x_2d, [-1, 3])
+            x_2d @= toycam
+        else:
+            x_2d_indep = tf.reshape(x_2d, [-1, 13, 3])
+            x_2d_indep @= tf.random_shuffle(cams)[0:tf.shape(x)[0]*FLAGS.window_length]
+            
+            x_2d_cor = tf.reshape(x_2d, [-1, FLAGS.window_length * 13, 3])
+            x_2d_cor @= tf.random_shuffle(cams)[0:tf.shape(x)[0]]
+            
+            x_2d = tf.cond(independent, lambda: x_2d_indep, lambda: x_2d_cor)
         
-        x_2d_cor = tf.reshape(x_2d, [-1, FLAGS.window_length * 13, 3])
-        x_2d_cor @= tf.random_shuffle(cams)[0:tf.shape(x)[0]]
-        
-        x_2d = tf.cond(independent, lambda: x_2d_indep, lambda: x_2d_cor)
         x_2d = tf.reshape(x_2d, [-1, FLAGS.window_length, 13, 3])
         depth = tf.slice(x_2d, [0, 0, 0, 2], [-1, -1, -1, -1])
         x_2d = tf.slice(x_2d, [0, 0, 0, 0], [-1, -1, -1, 2])
