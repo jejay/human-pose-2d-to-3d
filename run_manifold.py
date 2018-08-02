@@ -317,6 +317,88 @@ def main(_):
         x_2d = tf.nn.relu(x_2d)
     
     
+    elif FLAGS.architecture == 'monster-tower':
+
+        x_2d = tf.layers.dropout(x_2d_input, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=1024,
+            kernel_size=85,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        skip = x_2d
+        if FLAGS.batch_norm:
+            x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+        x_2d = tf.nn.relu(x_2d)
+        
+        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=1024,
+            kernel_size=45,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        if FLAGS.batch_norm:
+            x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+        x_2d = tf.nn.relu(x_2d)    
+        
+        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=1024,
+            kernel_size=25,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        x_2d += skip
+        skip = x_2d
+        if FLAGS.batch_norm:
+            x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+        x_2d = tf.nn.relu(x_2d)
+
+        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=1024,
+            kernel_size=15,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        if FLAGS.batch_norm:
+            x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+        x_2d = tf.nn.relu(x_2d)
+
+        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=512,
+            kernel_size=85,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        x_2d += skip
+        if FLAGS.batch_norm:
+            x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+        x_2d = tf.nn.relu(x_2d)
+
+        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.conv1d(
+            x_2d,
+            filters=256,
+            kernel_size=85,
+            strides=1,
+            padding='same',
+            data_format='channels_first'
+        ) # (batchsize, channels_out, window)
+        x_2d = tf.nn.relu(x_2d)
+    
     with tf.variable_scope("last-pooling"):
         x_2d, _ = tf.nn.max_pool_with_argmax(
             tf.reshape(x_2d, [-1, 256, FLAGS.window_length, 1]),
