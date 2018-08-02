@@ -391,7 +391,7 @@ def main(_):
             saver.save(sess, os.path.join(train_dir, "checkpoints/model.ckpt"), global_step=epoch)
     
     print("training done")
-    print("start inferring results)
+    print("start inferring results")
     sess.run(iterator.initializer, {
         tfrecordsfile: os.path.join(FLAGS.data_dir, 'tfrecords', '{0}.tfrecords'.format(FLAGS.dataset)),
         independent: FLAGS.independent,
