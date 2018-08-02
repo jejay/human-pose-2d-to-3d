@@ -2,8 +2,8 @@ from ManifoldModel import ManifoldModel
 import tensorflow as tf
 
 class SingleManifoldModel(ManifoldModel):
-    def __init__(self, window, activation=tf.nn.relu, maxpooling=True, accurate_depooling=False):
-        super().__init__(window, activation=activation, maxpooling=maxpooling, accurate_depooling=accurate_depooling)
+    def __init__(self, window, activation=tf.nn.relu, maxpooling=True, accurate_depooling=False, batch_norm=False):
+        super().__init__(window, activation=activation, maxpooling=maxpooling, accurate_depooling=accurate_depooling, batch_norm=batch_norm)
     
     def build_graph(self, inputs):
         with tf.variable_scope("single_layer_manifold"):

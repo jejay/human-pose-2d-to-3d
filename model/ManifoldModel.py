@@ -18,7 +18,7 @@ class ManifoldModel(object):
         self._residual = residual
         
         self.training = tf.placeholder(tf.bool, [])
-    def conv_in(self, x, channels_in, channels_out, kernel_length, dropout=0.25):
+    def conv_in(self, x, channels_in, channels_out, kernel_length, dropout=0.25, kernel_weights=None, bias_weights=None):
         droppedout = tf.layers.dropout(
             x,
             rate=dropout,
@@ -34,14 +34,16 @@ class ManifoldModel(object):
             padding='same',
             data_format='channels_first',
             activation=None,
-            kernel_initializer=None,
-            bias_initializer=tf.zeros_initializer()
+            kernel_initializer=tf.constant_initializer(kernel_weights) if kernel_weights is not None else None,
+            bias_initializer=tf.constant_initializer(bias_weights) if bias_weights is not None else tf.zeros_initializer(),
+            trainable=False if kernel_weights is not None and bias_weights is not None else True
         ) # (batchsize, channels_out, window)
         
         if self._batch_norm:
-            convolved = tf.layers.batch_normalization(convolved, axis=1, momentum=0.999, training=self.training, fused=True)
+            convolved = tf.layers.batch_normalization(convolved, axis=1, momentum=0.99995, training=self.training, fused=True)
         
-        convolved = self._activation(convolved)
+        if self._activation:
+            convolved = self._activation(convolved)
         
         if self._maxpooling:
             pooled, ind = tf.nn.max_pool_with_argmax(
@@ -59,7 +61,7 @@ class ManifoldModel(object):
         self._depth *= 2
         return manifold
 
-    def conv_out(self, x, channels_in, channels_out, kernel_length, dropout=0.25, residual_candidate=None, output_layer=False):
+    def conv_out(self, x, channels_in, channels_out, kernel_length, dropout=0.25, residual_candidate=None, output_layer=False, kernel_weights=None, bias_weights=None):
         self._depth //= 2
         
         if self._maxpooling and self._accurate_depooling:
@@ -90,17 +92,18 @@ class ManifoldModel(object):
             padding='same',
             data_format='channels_first',
             activation=None,
-            kernel_initializer=None,
-            bias_initializer=tf.zeros_initializer()
+            kernel_initializer=tf.constant_initializer(kernel_weights) if kernel_weights is not None else None,
+            bias_initializer=tf.constant_initializer(bias_weights) if bias_weights is not None else tf.zeros_initializer(),
+            trainable=False if kernel_weights is not None and bias_weights is not None else True
         ) # (batchsize, channels_out, window)
         
         if self._residual and residual_candidate is not None:
             deconvolved = deconvolved + residual_candidate
         
         if (not output_layer) and self._batch_norm:
-            deconvolved = tf.layers.batch_normalization(deconvolved, axis=1, momentum=0.999, training=self.training, fused=True)
+            deconvolved = tf.layers.batch_normalization(deconvolved, axis=1, momentum=0.99995, training=self.training, fused=True)
         
-        if not output_layer:
+        if not output_layer and self._activation:
             deconvolved = self._activation(deconvolved)
         
         return deconvolved

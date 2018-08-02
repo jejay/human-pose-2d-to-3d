@@ -39,7 +39,7 @@ class FlexibleSerialManifoldModel(ManifoldModel):
         self.manifolds = []
         self.autoencoded = []
         
-        with tf.variable_scope("serial_manifold_{0}x{1}".format(self._filter_length, self._window)):
+        with tf.variable_scope("serial_manifold_{0}x{1}".format(self._filter_length, 256)):
             for i in range(self._num_manifolds):
                 with tf.variable_scope("manifold_{0}".format(i)):
                     residual_candidates.append(None if not self._inter_residual else x)
