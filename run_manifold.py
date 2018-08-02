@@ -337,7 +337,7 @@ def main(_):
         x_2d = tf.layers.conv1d(
             x_2d,
             filters=1024,
-            kernel_size=45,
+            kernel_size=65,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -350,7 +350,7 @@ def main(_):
         x_2d = tf.layers.conv1d(
             x_2d,
             filters=1024,
-            kernel_size=25,
+            kernel_size=45,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -365,7 +365,7 @@ def main(_):
         x_2d = tf.layers.conv1d(
             x_2d,
             filters=1024,
-            kernel_size=15,
+            kernel_size=25,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -377,8 +377,8 @@ def main(_):
         x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
         x_2d = tf.layers.conv1d(
             x_2d,
-            filters=512,
-            kernel_size=85,
+            filters=1024,
+            kernel_size=15,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -392,7 +392,7 @@ def main(_):
         x_2d = tf.layers.conv1d(
             x_2d,
             filters=256,
-            kernel_size=85,
+            kernel_size=1,
             strides=1,
             padding='same',
             data_format='channels_first'
