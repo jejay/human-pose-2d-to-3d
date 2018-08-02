@@ -124,7 +124,7 @@ def main(_):
     dataset = dataset.map(normalize)
     dataset = dataset.prefetch(1)
     iterator = dataset.make_initializable_iterator()
-    x_2d, x_3d = iterator.get_next()
+    x_2d_input, x_3d = iterator.get_next()
     
 
     hourglass = ManifoldModel(window=FLAGS.window_length,
@@ -143,7 +143,7 @@ def main(_):
     
     if FLAGS.architecture in ['linear-hourglass', 'linear-half-hourglass']:
     
-        x_2d = tf.transpose(x_2d, [0,2,1])
+        x_2d = tf.transpose(x_2d_input, [0,2,1])
         x_2d = tf.reshape(x_2d, [-1,26])
         
         x_2d = tf.layers.dense(x_2d, 1024)
@@ -235,7 +235,7 @@ def main(_):
     elif FLAGS.architecture == 'hourglass':
     
         with tf.variable_scope("hourglass"):
-            x_2d = hourglass.conv_in(x_2d, channels_in=26, channels_out=512, kernel_length=21, dropout=0.2)
+            x_2d = hourglass.conv_in(x_2d_input, channels_in=26, channels_out=512, kernel_length=21, dropout=0.2)
             skip1 = x_2d
             if FLAGS.batch_norm:
                 x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
@@ -267,13 +267,13 @@ def main(_):
             x_2d = hourglass.conv_out(x_2d, channels_in=512, channels_out=256, kernel_length=21, dropout=0.2)
             x_2d = tf.nn.relu(x_2d)
     
-    elif FLAGS.architecture == 'tower':
+    elif FLAGS.architecture in ['tower', 'eiffel-tower']:
         
-        x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
+        x_2d = tf.layers.dropout(x_2d_input, rate=0.2, training=hourglass.training)
         x_2d = tf.layers.conv1d(
             x_2d,
-            filters=256,
-            kernel_size=85,
+            filters=256 if FLAGS.architecture == 'tower' else 64,
+            kernel_size=85 if FLAGS.architecture == 'tower' else 45,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -285,8 +285,8 @@ def main(_):
         x_2d = tf.layers.dropout(x_2d, rate=0.2, training=hourglass.training)
         x_2d = tf.layers.conv1d(
             x_2d,
-            filters=256,
-            kernel_size=45,
+            filters=256 if FLAGS.architecture == 'tower' else 128,
+            kernel_size=45 if FLAGS.architecture == 'tower' else 25,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -299,7 +299,7 @@ def main(_):
         x_2d = tf.layers.conv1d(
             x_2d,
             filters=256,
-            kernel_size=45,
+            kernel_size=45 if FLAGS.architecture == 'tower' else 15,
             strides=1,
             padding='same',
             data_format='channels_first'
@@ -366,20 +366,47 @@ def main(_):
         })
         while True:
             try:
-                l,_, summary = sess.run((loss, train, merged), {
+                _, summary = sess.run((train, merged), {
                     learning_rate: lr,
                     independent: FLAGS.independent,
                     procrustes: FLAGS.procrustes,
                     hourglass.training: True,
                     manifold.training: False
                 })
-                print(l)
                 train_step += 1
                 train_writer.add_summary(summary, train_step)
             except tf.errors.OutOfRangeError:
                 break
         if epoch % 5 == 4:
             saver.save(sess, os.path.join(train_dir, "checkpoints/model.ckpt"), global_step=epoch)
-    print("done")
+    
+    print("training done")
+    print("start inferring results)
+    sess.run(iterator.initializer, {
+        tfrecordsfile: os.path.join(FLAGS.data_dir, 'tfrecords', '{0}.tfrecords'.format(FLAGS.dataset)),
+        independent: FLAGS.independent,
+        procrustes: FLAGS.procrustes,
+        hourglass.training: False,
+        manifold.training: False
+    })
+    l, result_input_x2d, result_output_x3d = sess.run((loss, x_2d_input, autoencoded), {
+        learning_rate: lr,
+        independent: FLAGS.independent,
+        procrustes: FLAGS.procrustes,
+        hourglass.training: False,
+        manifold.training: False
+    })
+    
+    result_input_x2d = result_input_x2d.swapaxes(1,2)
+    if FLAGS.procrustes:
+        result_input_x2d = result_input_x2d * preprocess_2d["p_std"] + preprocess_2d["p_mean"]
+    else:
+        result_input_x2d = result_input_x2d * preprocess_2d["np_std"] + preprocess_2d["np_mean"]
+    result_output_x3d = result_output_x3d * preprocess_core["Xstd"] + preprocess_core["Xmean"]
+    
+    np.savez(os.path.join(train_dir, "results.npz"), x2d = result_input_x2d, x3d = result_output_x3d)
+
+    print("inferring results done, loss was", l)
+
 if __name__ == "__main__":
   tf.app.run()
