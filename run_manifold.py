@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_integer("epochs", 30, "How many epochs we should train for")
 
 # Architecture
 tf.app.flags.DEFINE_integer("window_length", 240, "Number of frames in a window (motion clip).")
-tf.app.flags.DEFINE_string("architecture", "linear-hourglass", "Architecture to use.")
+tf.app.flags.DEFINE_string("architecture", "real-hourglass", "Architecture to use.")
 tf.app.flags.DEFINE_boolean("procrustes", False, "Whether to rotational align 2D projections.")
 tf.app.flags.DEFINE_boolean("independent", False, "Whether to draw the camera angles independent of time.")
 tf.app.flags.DEFINE_boolean("toy", False, "Whether to use the same toy matrice/camera angle for all poses.")
@@ -399,6 +399,151 @@ def main(_):
         ) # (batchsize, channels_out, window)
         x_2d = tf.nn.relu(x_2d)
     
+    elif FLAGS.architecture == 'real-hourglass':
+        
+        def resmodule(x, channels=1024, first=False):
+            xskip = x
+            if not first:
+                if FLAGS.batch_norm:
+                    x = tf.layers.batch_normalization(x, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+                x = tf.nn.relu(x)
+            x = tf.layers.conv1d(
+                x,
+                filters=channels,
+                kernel_size=9,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)
+            if FLAGS.batch_norm:
+                x = tf.layers.batch_normalization(x, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+            x = tf.nn.relu(x)
+
+            x = tf.layers.conv1d(
+                x,
+                filters=channels,
+                kernel_size=3,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)
+            if FLAGS.batch_norm:
+                x = tf.layers.batch_normalization(x, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+            x = tf.nn.relu(x)
+            
+            x = tf.layers.conv1d(
+                x,
+                filters=channels,
+                kernel_size=1,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)    
+            return x + xskip
+        with tf.variable_scope("real-hourglass"):
+            x_2d = tf.layers.conv1d(
+                x_2d_input,
+                filters=1024,
+                kernel_size=1,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)   
+            x_2d = resmodule(x_2d)
+            skip1 = resmodule(x_2d)
+            x_2d, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2])
+    
+            
+            x_2d = resmodule(x_2d)
+            skip2 = resmodule(x_2d)
+            x_2d, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4])
+            
+            
+            x_2d = resmodule(x_2d)
+            skip3 = resmodule(x_2d)
+            x_2d, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8])
+            
+            
+            x_2d = resmodule(x_2d)
+            skip4 = resmodule(x_2d)
+            x_2d, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//16])
+    
+            x_2d = resmodule(x_2d)
+            x_2d = resmodule(x_2d)
+            x_2d = resmodule(x_2d)
+    
+            x_2d = tf.image.resize_images(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//16, 1]),
+                [1024, FLAGS.window_length//8],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8])
+    
+            x_2d = resmodule(x_2d + skip4)
+            
+            x_2d = tf.image.resize_images(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8, 1]),
+                [1024, FLAGS.window_length//4],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4])
+    
+            x_2d = resmodule(x_2d + skip3)
+            
+            x_2d = tf.image.resize_images(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4, 1]),
+                [1024, FLAGS.window_length//2],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2])
+    
+            x_2d = resmodule(x_2d + skip2)
+            
+            x_2d = tf.image.resize_images(
+                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2, 1]),
+                [1024, FLAGS.window_length],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length])
+    
+            x_2d = resmodule(x_2d + skip1)
+            if FLAGS.batch_norm:
+                x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+            x_2d = tf.nn.relu(x_2d)
+            x_2d = tf.layers.conv1d(
+                x_2d,
+                filters=256,
+                kernel_size=1,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)   
+            x_2d = tf.nn.relu(x_2d)
+
     with tf.variable_scope("last-pooling"):
         x_2d, _ = tf.nn.max_pool_with_argmax(
             tf.reshape(x_2d, [-1, 256, FLAGS.window_length, 1]),
@@ -432,7 +577,7 @@ def main(_):
     with tf.control_dependencies(update_ops):
         train = optimizer.minimize(loss)
     
-    saver = tf.train.Saver(max_to_keep=2)
+    saver = tf.train.Saver(max_to_keep=1)
 
     print("TRAINABLE_VARIABLES:", tf.get_default_graph().get_collection(tf.GraphKeys.TRAINABLE_VARIABLES))
     config = tf.ConfigProto()
@@ -440,7 +585,10 @@ def main(_):
     sess = tf.Session(config=config)
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(os.path.join(train_dir, 'logs/train'), sess.graph)
-    sess.run(tf.global_variables_initializer())
+    if FLAGS.load != 0:
+        saver.restore(sess, os.path.join(train_dir, "checkpoints/model.ckpt-{0}".format(FLAGS.load)))
+    else:
+        sess.run(tf.global_variables_initializer())
     print("number of parameters", np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
     train_step = 0
  
@@ -469,8 +617,7 @@ def main(_):
                 train_writer.add_summary(summary, train_step)
             except tf.errors.OutOfRangeError:
                 break
-        if epoch % 5 == 4:
-            saver.save(sess, os.path.join(train_dir, "checkpoints/model.ckpt"), global_step=epoch)
+        saver.save(sess, os.path.join(train_dir, "checkpoints/model.ckpt"), global_step=epoch)
     
     print("training done")
     print("start inferring results")
@@ -481,7 +628,7 @@ def main(_):
         hourglass.training: False,
         manifold.training: False
     })
-    l, result_input_x2d, result_output_x3d = sess.run((loss, x_2d_input, autoencoded), {
+    l, result_input_x2d, result_output_x3d, result_input_x3d = sess.run((loss, x_2d_input, autoencoded, x_3d), {
         learning_rate: lr,
         independent: FLAGS.independent,
         procrustes: FLAGS.procrustes,
@@ -495,8 +642,9 @@ def main(_):
     else:
         result_input_x2d = result_input_x2d * preprocess_2d["np_std"] + preprocess_2d["np_mean"]
     result_output_x3d = result_output_x3d * preprocess_core["Xstd"] + preprocess_core["Xmean"]
+    result_input_x3d = result_input_x3d * preprocess_core["Xstd"] + preprocess_core["Xmean"]
     
-    np.savez(os.path.join(train_dir, "results.npz"), x2d = result_input_x2d, x3d = result_output_x3d)
+    np.savez(os.path.join(train_dir, "results.npz"), x2d = result_input_x2d, x3dout = result_output_x3d, x3din = result_input_x3d)
 
     print("inferring results done, loss was", l)
 
