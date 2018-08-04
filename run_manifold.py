@@ -401,7 +401,7 @@ def main(_):
     
     elif FLAGS.architecture == 'real-hourglass':
         
-        def resmodule(x, channels=1024, first=False):
+        def resmodule(x, channels=512, first=False):
             xskip = x
             if not first:
                 if FLAGS.batch_norm:
@@ -443,7 +443,7 @@ def main(_):
         with tf.variable_scope("real-hourglass"):
             x_2d = tf.layers.conv1d(
                 x_2d_input,
-                filters=1024,
+                filters=512,
                 kernel_size=1,
                 strides=1,
                 padding='same',
@@ -452,83 +452,83 @@ def main(_):
             x_2d = resmodule(x_2d)
             skip1 = resmodule(x_2d)
             x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length, 1]),
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length, 1]),
                 ksize=[1,1,2,1],
                 strides=[1,1,2,1],
                 padding="VALID"
             ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2])
     
             
             x_2d = resmodule(x_2d)
             skip2 = resmodule(x_2d)
             x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2, 1]),
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2, 1]),
                 ksize=[1,1,2,1],
                 strides=[1,1,2,1],
                 padding="VALID"
             ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4])
             
             
             x_2d = resmodule(x_2d)
             skip3 = resmodule(x_2d)
             x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4, 1]),
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4, 1]),
                 ksize=[1,1,2,1],
                 strides=[1,1,2,1],
                 padding="VALID"
             ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8])
             
             
             x_2d = resmodule(x_2d)
             skip4 = resmodule(x_2d)
             x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8, 1]),
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8, 1]),
                 ksize=[1,1,2,1],
                 strides=[1,1,2,1],
                 padding="VALID"
             ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//16])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//16])
     
             x_2d = resmodule(x_2d)
             x_2d = resmodule(x_2d)
             x_2d = resmodule(x_2d)
     
             x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//16, 1]),
-                [1024, FLAGS.window_length//8],
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//16, 1]),
+                [512, FLAGS.window_length//8],
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8])
     
             x_2d = resmodule(x_2d + skip4)
             
             x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//8, 1]),
-                [1024, FLAGS.window_length//4],
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8, 1]),
+                [512, FLAGS.window_length//4],
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4])
     
             x_2d = resmodule(x_2d + skip3)
             
             x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//4, 1]),
-                [1024, FLAGS.window_length//2],
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4, 1]),
+                [512, FLAGS.window_length//2],
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2])
     
             x_2d = resmodule(x_2d + skip2)
             
             x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 1024, FLAGS.window_length//2, 1]),
-                [1024, FLAGS.window_length],
+                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2, 1]),
+                [512, FLAGS.window_length],
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
-            x_2d = tf.reshape(x_2d, [-1, 1024, FLAGS.window_length])
+            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length])
     
             x_2d = resmodule(x_2d + skip1)
             if FLAGS.batch_norm:
