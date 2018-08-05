@@ -418,7 +418,7 @@ def main(_):
             if FLAGS.batch_norm:
                 x = tf.layers.batch_normalization(x, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
             x = tf.nn.relu(x)
-
+    
             x = tf.layers.conv1d(
                 x,
                 filters=channels,
@@ -440,6 +440,92 @@ def main(_):
                 data_format='channels_first'
             ) # (batchsize, channels_out, window)    
             return x + xskip
+        
+        def hourglass_module(x, channels=512):
+            x = resmodule(x, channels=channels)
+            skip1 = resmodule(x, channels=channels)
+            x, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x, [-1, channels, FLAGS.window_length, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//2])
+    
+            
+            x = resmodule(x, channels=channels)
+            skip2 = resmodule(x, channels=channels)
+            x, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//2, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//4])
+            
+            
+            x = resmodule(x, channels=channels)
+            skip3 = resmodule(x, channels=channels)
+            x, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//4, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//8])
+            
+            
+            x = resmodule(x, channels=channels)
+            skip4 = resmodule(x, channels=channels)
+            x, _ = tf.nn.max_pool_with_argmax(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//8, 1]),
+                ksize=[1,1,2,1],
+                strides=[1,1,2,1],
+                padding="VALID"
+            ) # (batchsize, 256, 120, 1)
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//16])
+    
+            x = resmodule(x, channels=channels)
+            x = resmodule(x, channels=channels)
+            x = resmodule(x, channels=channels)
+    
+            x = tf.image.resize_images(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//16, 1]),
+                [channels, FLAGS.window_length//8],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//8])
+    
+            x = resmodule(x + skip4, channels=channels)
+            
+            x = tf.image.resize_images(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//8, 1]),
+                [channels, FLAGS.window_length//4],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//4])
+    
+            x = resmodule(x + skip3, channels=channels)
+            
+            x = tf.image.resize_images(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//4, 1]),
+                [channels, FLAGS.window_length//2],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length//2])
+    
+            x = resmodule(x + skip2, channels=channels)
+            
+            x = tf.image.resize_images(
+                tf.reshape(x, [-1, channels, FLAGS.window_length//2, 1]),
+                [channels, FLAGS.window_length],
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            x = tf.reshape(x, [-1, channels, FLAGS.window_length])
+
+            x = resmodule(x + skip1, channels=channels)
+            return x
+        
         with tf.variable_scope("real-hourglass"):
             x_2d = tf.layers.conv1d(
                 x_2d_input,
@@ -448,89 +534,10 @@ def main(_):
                 strides=1,
                 padding='same',
                 data_format='channels_first'
-            ) # (batchsize, channels_out, window)   
-            x_2d = resmodule(x_2d)
-            skip1 = resmodule(x_2d)
-            x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length, 1]),
-                ksize=[1,1,2,1],
-                strides=[1,1,2,1],
-                padding="VALID"
-            ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2])
-    
+            ) # (batchsize, channels_out, window)
             
-            x_2d = resmodule(x_2d)
-            skip2 = resmodule(x_2d)
-            x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2, 1]),
-                ksize=[1,1,2,1],
-                strides=[1,1,2,1],
-                padding="VALID"
-            ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4])
-            
-            
-            x_2d = resmodule(x_2d)
-            skip3 = resmodule(x_2d)
-            x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4, 1]),
-                ksize=[1,1,2,1],
-                strides=[1,1,2,1],
-                padding="VALID"
-            ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8])
-            
-            
-            x_2d = resmodule(x_2d)
-            skip4 = resmodule(x_2d)
-            x_2d, _ = tf.nn.max_pool_with_argmax(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8, 1]),
-                ksize=[1,1,2,1],
-                strides=[1,1,2,1],
-                padding="VALID"
-            ) # (batchsize, 256, 120, 1)
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//16])
-    
-            x_2d = resmodule(x_2d)
-            x_2d = resmodule(x_2d)
-            x_2d = resmodule(x_2d)
-    
-            x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//16, 1]),
-                [512, FLAGS.window_length//8],
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8])
-    
-            x_2d = resmodule(x_2d + skip4)
-            
-            x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//8, 1]),
-                [512, FLAGS.window_length//4],
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4])
-    
-            x_2d = resmodule(x_2d + skip3)
-            
-            x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//4, 1]),
-                [512, FLAGS.window_length//2],
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2])
-    
-            x_2d = resmodule(x_2d + skip2)
-            
-            x_2d = tf.image.resize_images(
-                tf.reshape(x_2d, [-1, 512, FLAGS.window_length//2, 1]),
-                [512, FLAGS.window_length],
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            x_2d = tf.reshape(x_2d, [-1, 512, FLAGS.window_length])
-    
-            x_2d = resmodule(x_2d + skip1)
+            x_2d = hourglass_module(x_2d, channels=512)
+
             if FLAGS.batch_norm:
                 x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
             x_2d = tf.nn.relu(x_2d)
@@ -590,10 +597,10 @@ def main(_):
     else:
         sess.run(tf.global_variables_initializer())
     print("number of parameters", np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
-    train_step = 0
+    train_step = FLAGS.load*12249
  
     maxepsqrt = FLAGS.epochs**0.5
-    for epoch in range(FLAGS.epochs):
+    for epoch in range(FLAGS.load, FLAGS.epochs):
         epsqrt = epoch**0.5
         lr = FLAGS.start_learning_rate*((maxepsqrt-epsqrt)/maxepsqrt) + FLAGS.end_learning_rate*(epsqrt/maxepsqrt)
         print("start epoch #", epoch+1, "learning rate", lr)
