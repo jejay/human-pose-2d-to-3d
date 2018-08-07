@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_integer("epochs", 30, "How many epochs we should train for")
 
 # Architecture
 tf.app.flags.DEFINE_integer("window_length", 240, "Number of frames in a window (motion clip).")
-tf.app.flags.DEFINE_string("architecture", "real-hourglass", "Architecture to use.")
+tf.app.flags.DEFINE_string("architecture", "real-hourglass-double-linear", "Architecture to use.")
 tf.app.flags.DEFINE_boolean("procrustes", False, "Whether to rotational align 2D projections.")
 tf.app.flags.DEFINE_boolean("independent", False, "Whether to draw the camera angles independent of time.")
 tf.app.flags.DEFINE_boolean("toy", False, "Whether to use the same toy matrice/camera angle for all poses.")
@@ -51,6 +51,7 @@ os.system('mkdir -p {}'.format(os.path.join( train_dir, "checkpoints" ))) # To a
 def main(_):
     tf.reset_default_graph()
     
+    isvloss = None
         
     preprocess_2d = np.load("data/preprocess_2d.npz")
     preprocess_core = np.load("data/preprocess_core.npz")
@@ -399,7 +400,7 @@ def main(_):
         ) # (batchsize, channels_out, window)
         x_2d = tf.nn.relu(x_2d)
     
-    elif FLAGS.architecture == 'real-hourglass':
+    elif "real-hourglass" in FLAGS.architecture:
         
         def resmodule(x, channels=512, first=False):
             xskip = x
@@ -526,6 +527,20 @@ def main(_):
             x = resmodule(x + skip1, channels=channels)
             return x
         
+        def linconvlayer(x, channels):
+            if FLAGS.batch_norm:
+                x = tf.layers.batch_normalization(x, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
+            x = tf.nn.relu(x)
+            x = tf.layers.conv1d(
+                x,
+                filters=512,
+                kernel_size=1,
+                strides=1,
+                padding='same',
+                data_format='channels_first'
+            ) # (batchsize, channels_out, window)
+            return x
+        
         with tf.variable_scope("real-hourglass"):
             x_2d = tf.layers.conv1d(
                 x_2d_input,
@@ -536,22 +551,53 @@ def main(_):
                 data_format='channels_first'
             ) # (batchsize, channels_out, window)
             
+            if "linear" in FLAGS.architecture:
+                skip_lin_1 = x_2d
+                x_2d = linconvlayer(x_2d, 512)
+                x_2d = linconvlayer(x_2d, 512)
+                x_2d += skip_lin_1
+                skip_lin_2 = x_2d
+                x_2d = linconvlayer(x_2d, 512)
+                x_2d = linconvlayer(x_2d, 512)
+                x_2d += skip_lin_2
+            
+            if "double" in FLAGS.architecture:
+                skip_before_double = x_2d
+                x_2d = hourglass_module(x_2d, channels=512)
+                skip_after_double = x_2d
+                
+                
+                x_2d = linconvlayer(x_2d, 256)
+                
+                skip_isv = x_2d
+                
+                x_2d_isv = tf.nn.relu(x_2d)
+                x_2d_isv, _ = tf.nn.max_pool_with_argmax(
+                    tf.reshape(x_2d_isv, [-1, 256, FLAGS.window_length, 1]),
+                    ksize=[1,1,2,1],
+                    strides=[1,1,2,1],
+                    padding="VALID"
+                    ) # (batchsize, 256, 120, 1)
+                x_2d_isv = tf.reshape(x_2d_isv, [-1, 256, FLAGS.window_length//2])
+                
+                manifold._depth = 2
+                isv_autoencoded = manifold.conv_out(x_2d_isv, channels_in=256, channels_out=73, kernel_length=25, dropout=0.0, output_layer=True,
+                                             kernel_weights=manifold_weights['L001_L002_W'].transpose(),
+                                             bias_weights=manifold_weights['L001_L003_b'].reshape((73,)))
+                
+                isvloss = tf.losses.mean_squared_error(labels=x_3d, predictions=isv_autoencoded)
+                tf.summary.scalar("isvloss", isvloss)
+                
+                x_2d = skip_before_double + skip_after_double + linconvlayer(skip_isv, 512)
+                
+                
+                
+            
             x_2d = hourglass_module(x_2d, channels=512)
-
-            if FLAGS.batch_norm:
-                x_2d = tf.layers.batch_normalization(x_2d, axis=1, momentum=0.99995, training=hourglass.training, fused=True)
-            x_2d = tf.nn.relu(x_2d)
-            x_2d = tf.layers.conv1d(
-                x_2d,
-                filters=256,
-                kernel_size=1,
-                strides=1,
-                padding='same',
-                data_format='channels_first'
-            ) # (batchsize, channels_out, window)   
-            x_2d = tf.nn.relu(x_2d)
+            x_2d = linconvlayer(x_2d, 256)
 
     with tf.variable_scope("last-pooling"):
+        x_2d = tf.nn.relu(x_2d)
         x_2d, _ = tf.nn.max_pool_with_argmax(
             tf.reshape(x_2d, [-1, 256, FLAGS.window_length, 1]),
             ksize=[1,1,2,1],
@@ -578,6 +624,11 @@ def main(_):
     
     loss = tf.losses.mean_squared_error(labels=x_3d, predictions=autoencoded)
     tf.summary.scalar("loss", loss)
+    
+    if isvloss is not None:
+        loss = tf.losses.get_total_loss()
+        tf.summary.scalar("totalloss", loss)
+        
     
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
