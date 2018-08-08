@@ -563,7 +563,7 @@ def main(_):
             
             if "double" in FLAGS.architecture:
                 skip_before_double = x_2d
-                x_2d = hourglass_module(x_2d, channels=512)
+                x_2d = hourglass_module(x_2d, channels=384)
                 skip_after_double = x_2d
                 
                 
@@ -588,12 +588,12 @@ def main(_):
                 isvloss = tf.losses.mean_squared_error(labels=x_3d, predictions=isv_autoencoded)
                 tf.summary.scalar("isvloss", isvloss)
                 
-                x_2d = skip_before_double + skip_after_double + linconvlayer(skip_isv, 512)
+                x_2d = skip_before_double + skip_after_double + linconvlayer(skip_isv, 384)
                 
                 
                 
             
-            x_2d = hourglass_module(x_2d, channels=512)
+            x_2d = hourglass_module(x_2d, channels=384 if "double" in FLAGS.architecture else 512)
             x_2d = linconvlayer(x_2d, 256)
 
     with tf.variable_scope("last-pooling"):
